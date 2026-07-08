@@ -1,6 +1,7 @@
 # RV Level Cards
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/integration)
+[![Validate](https://github.com/ArnyminerZ/ha-rv-level-cards/actions/workflows/validate.yaml/badge.svg)](https://github.com/ArnyminerZ/ha-rv-level-cards/actions/workflows/validate.yaml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Two Lovelace cards for the [RV Level](https://github.com/arnyminerz/ha-rv-level)
@@ -8,6 +9,13 @@ integration: a bubble-level indicator, and a top-down view of your vehicle
 showing which chock to use at each wheel. Both are plain, dependency-free
 custom elements — no Mushroom, no `html-card`, no build step, just this
 repository's JS files served straight to the browser.
+
+> [!IMPORTANT]
+> **This entire repository — both cards, their UI editors, and this
+> documentation — was generated with the help of an AI coding assistant
+> (Claude, by Anthropic), as a companion to the [RV Level](https://github.com/arnyminerz/ha-rv-level)
+> integration.** It has been reviewed, but as with any AI-assisted project,
+> please review the code yourself before trusting it with your dashboard.
 
 ## Installation
 
