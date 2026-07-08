@@ -154,12 +154,12 @@
       this.attachShadow({ mode: "open" });
       this.shadowRoot.innerHTML = `
         <style>
-          ha-card { padding-bottom: 8px; }
-          .wrap { display: flex; flex-direction: column; align-items: center; padding: 0 16px 8px; }
+          ha-card { padding-bottom: 8px; overflow: hidden; }
+          .wrap { display: flex; flex-direction: column; align-items: center; padding: 0 16px 8px; box-sizing: border-box; }
           .dial {
             position: relative;
-            width: 220px;
-            height: 220px;
+            width: min(220px, 100%);
+            aspect-ratio: 1 / 1;
             margin: 8px auto;
             border-radius: 50%;
             background: radial-gradient(circle, var(--card-background-color, #fff) 0%, var(--secondary-background-color, #eceff1) 100%);
@@ -167,8 +167,8 @@
             box-sizing: border-box;
           }
           .axis-x, .axis-y { position: absolute; background: var(--divider-color, #888); opacity: 0.5; }
-          .axis-x { left: 50%; top: 14px; bottom: 14px; width: 1px; }
-          .axis-y { top: 50%; left: 14px; right: 14px; height: 1px; }
+          .axis-x { left: 50%; top: 8%; bottom: 8%; width: 1px; }
+          .axis-y { top: 50%; left: 8%; right: 8%; height: 1px; }
           .zone {
             position: absolute; left: 50%; top: 50%;
             transform: translate(-50%, -50%);
@@ -177,7 +177,8 @@
           }
           .bubble {
             position: absolute;
-            width: 26px; height: 26px;
+            width: 12%; height: 12%;
+            transform: translate(-50%, -50%);
             border-radius: 50%;
             border: 1.5px solid var(--card-background-color, #1b1b1b);
             opacity: 0.9;
@@ -207,7 +208,7 @@
     _update() {
       if (!this._hass || !this._config || !this._built) return;
 
-      this._card.header = this._config.title || BUBBLE_DEFAULT_TITLE;
+      this._card.header = this._config.title || "";
 
       const entities = resolveDeviceEntities(this._hass, this._config.device_id);
       const bubbleState = entities.bubble_position && this._hass.states[entities.bubble_position];
@@ -232,20 +233,23 @@
       const levelState = entities.level && this._hass.states[entities.level];
       const isLevel = levelState?.state === "on";
 
-      // Same px-per-degree scale for the bubble and the dashed "level zone" so
-      // the zone boundary is exactly where the vehicle stops being level.
-      const left = 97 + x * 90;
-      const top = 97 + y * 90;
-      const zoneW = (rollMargin / maxAngle) * 180;
-      const zoneH = (pitchMargin / maxAngle) * 180;
+      // Positions/sizes are all in % of the dial's own box (not fixed px),
+      // so the dial stays inside the card regardless of how narrow the
+      // column is (e.g. the Sections dashboard view). Same scale is used
+      // for the bubble and the dashed "level zone" so the zone boundary is
+      // exactly where the vehicle stops being level.
+      const leftPct = 50 + x * 41;
+      const topPct = 50 + y * 41;
+      const zoneWPct = (rollMargin / maxAngle) * 82;
+      const zoneHPct = (pitchMargin / maxAngle) * 82;
 
-      this._bubble.style.left = `${left}px`;
-      this._bubble.style.top = `${top}px`;
+      this._bubble.style.left = `${leftPct}%`;
+      this._bubble.style.top = `${topPct}%`;
       this._bubble.style.background = isLevel
         ? "var(--success-color, #2ecc71)"
         : "var(--error-color, #e74c3c)";
-      this._zone.style.width = `${zoneW}px`;
-      this._zone.style.height = `${zoneH}px`;
+      this._zone.style.width = `${zoneWPct}%`;
+      this._zone.style.height = `${zoneHPct}%`;
 
       this._status.textContent = isLevel ? "Level" : "Not level";
     }
@@ -261,10 +265,10 @@
 
   const CORNERS = ["front_left", "front_right", "rear_left", "rear_right"];
   const CORNER_POSITION = {
-    front_left: { top: "18%", left: "16%" },
-    front_right: { top: "18%", left: "84%" },
-    rear_left: { top: "82%", left: "16%" },
-    rear_right: { top: "82%", left: "84%" },
+    front_left: { top: "20%", left: "26%" },
+    front_right: { top: "20%", left: "74%" },
+    rear_left: { top: "80%", left: "26%" },
+    rear_right: { top: "80%", left: "74%" },
   };
 
   function chockIcon(chockIndex) {
@@ -318,12 +322,15 @@
 
       this.shadowRoot.innerHTML = `
         <style>
+          ha-card { overflow: hidden; }
           .plan {
             position: relative;
             width: 100%;
             max-width: 320px;
             aspect-ratio: 1 / 2;
             margin: 8px auto 16px;
+            overflow: hidden;
+            box-sizing: border-box;
           }
           .art { position: absolute; inset: 0; }
           .art svg, .art img { width: 100%; height: 100%; object-fit: contain; }
@@ -334,19 +341,25 @@
             flex-direction: column;
             align-items: center;
             gap: 2px;
-            min-width: 64px;
-            padding: 6px 8px;
+            max-width: 40%;
+            box-sizing: border-box;
+            padding: 4px 6px;
             border-radius: var(--ha-border-radius-md, 8px);
             background: var(--card-background-color, #fff);
             border: 1px solid var(--divider-color, #ddd);
             box-shadow: var(--ha-card-box-shadow, 0 1px 3px rgba(0,0,0,0.2));
-            font-size: 0.85rem;
+            font-size: 0.8rem;
             color: var(--primary-text-color);
             text-align: center;
           }
+          .tile .value, .tile .sub {
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
           .tile.corner.active ha-icon { color: var(--info-color, #2196f3); }
           .tile.corner ha-icon { color: var(--disabled-text-color, #9e9e9e); }
-          .tile.center { min-width: 96px; }
           .tile.center.good ha-icon { color: var(--success-color, #2ecc71); }
           .tile.center.warn ha-icon { color: var(--warning-color, #e78400); }
           .tile.center.bad ha-icon { color: var(--error-color, #e74c3c); }
@@ -376,7 +389,7 @@
     _update() {
       if (!this._hass || !this._config || !this._built) return;
 
-      this._card.header = this._config.title || TOPDOWN_DEFAULT_TITLE;
+      this._card.header = this._config.title || "";
 
       const artKey = this._config.image || "__default__";
       if (this._artKey !== artKey) {
@@ -484,6 +497,13 @@
     }
 
     _render() {
+      // Build the child elements only once both `hass` and `config` are
+      // known. `ha-form`/`ha-picture-upload` read `this.hass` during their
+      // very first render, so connecting them to the DOM before `hass` is
+      // set makes them throw and get stuck blank instead of showing the
+      // device picker / upload widget.
+      if (!this._hass || !this._config) return;
+
       if (!this.shadowRoot) {
         this.attachShadow({ mode: "open" });
         this.shadowRoot.innerHTML = `<style>ha-picture-upload { display: block; margin-top: 16px; }</style>`;
@@ -508,8 +528,6 @@
 
         this.shadowRoot.append(this._form, this._upload);
       }
-
-      if (!this._hass || !this._config) return;
 
       this._form.hass = this._hass;
       this._form.data = this._config;
