@@ -154,13 +154,44 @@
       this.attachShadow({ mode: "open" });
       this.shadowRoot.innerHTML = `
         <style>
-          ha-card { padding-bottom: 8px; overflow: hidden; }
-          .wrap { display: flex; flex-direction: column; align-items: center; padding: 0 16px 8px; box-sizing: border-box; }
+          /* Fills whatever height the layout gives this card (e.g. the fixed
+             row-height cell of the Sections dashboard view). In the Masonry
+             view no ancestor has a definite height, so this simply computes
+             to "auto" and the card just sizes to its content, as before. */
+          :host { display: block; height: 100%; box-sizing: border-box; }
+          ha-card {
+            height: 100%;
+            box-sizing: border-box;
+            overflow: hidden;
+          }
+          .wrap {
+            height: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            padding: 0 16px 8px;
+          }
+          .title {
+            flex: none;
+            padding: 16px 0 0;
+            font-size: 1.25rem;
+            font-weight: 500;
+            line-height: 1.2;
+            color: var(--ha-card-header-color, var(--primary-text-color));
+          }
+          .content {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
           .dial {
             position: relative;
-            width: min(220px, 100%);
+            height: 100%;
+            width: auto;
+            max-width: min(220px, 100%);
             aspect-ratio: 1 / 1;
-            margin: 8px auto;
             border-radius: 50%;
             background: radial-gradient(circle, var(--card-background-color, #fff) 0%, var(--secondary-background-color, #eceff1) 100%);
             border: 2px solid var(--divider-color, #888);
@@ -184,21 +215,29 @@
             opacity: 0.9;
             transition: left 0.2s ease, top 0.2s ease, background 0.2s ease;
           }
-          .status { font-size: var(--ha-font-size-l, 1rem); color: var(--secondary-text-color); text-align: center; }
+          .status {
+            flex: none;
+            font-size: var(--ha-font-size-l, 1rem);
+            color: var(--secondary-text-color);
+            text-align: center;
+          }
         </style>
         <ha-card>
           <div class="wrap">
-            <div class="dial">
-              <div class="axis-x"></div>
-              <div class="axis-y"></div>
-              <div class="zone"></div>
-              <div class="bubble"></div>
+            <div class="title"></div>
+            <div class="content">
+              <div class="dial">
+                <div class="axis-x"></div>
+                <div class="axis-y"></div>
+                <div class="zone"></div>
+                <div class="bubble"></div>
+              </div>
             </div>
             <div class="status"></div>
           </div>
         </ha-card>
       `;
-      this._card = this.shadowRoot.querySelector("ha-card");
+      this._title = this.shadowRoot.querySelector(".title");
       this._zone = this.shadowRoot.querySelector(".zone");
       this._bubble = this.shadowRoot.querySelector(".bubble");
       this._status = this.shadowRoot.querySelector(".status");
@@ -208,7 +247,9 @@
     _update() {
       if (!this._hass || !this._config || !this._built) return;
 
-      this._card.header = this._config.title || "";
+      const title = this._config.title || "";
+      this._title.textContent = title;
+      this._title.style.display = title ? "" : "none";
 
       const entities = resolveDeviceEntities(this._hass, this._config.device_id);
       const bubbleState = entities.bubble_position && this._hass.states[entities.bubble_position];
@@ -322,13 +363,40 @@
 
       this.shadowRoot.innerHTML = `
         <style>
-          ha-card { overflow: hidden; }
+          /* Fills whatever height the layout gives this card (e.g. the fixed
+             row-height cell of the Sections dashboard view). In the Masonry
+             view no ancestor has a definite height, so this simply computes
+             to "auto" and the card just sizes to its content, as before. */
+          :host { display: block; height: 100%; box-sizing: border-box; }
+          ha-card { height: 100%; box-sizing: border-box; overflow: hidden; }
+          .wrap {
+            height: 100%;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            padding: 0 16px 8px;
+          }
+          .title {
+            flex: none;
+            padding: 16px 0 0;
+            font-size: 1.25rem;
+            font-weight: 500;
+            line-height: 1.2;
+            color: var(--ha-card-header-color, var(--primary-text-color));
+          }
+          .content {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          }
           .plan {
             position: relative;
-            width: 100%;
-            max-width: 320px;
+            height: 100%;
+            width: auto;
+            max-width: min(320px, 100%);
             aspect-ratio: 1 / 2;
-            margin: 8px auto 16px;
             overflow: hidden;
             box-sizing: border-box;
           }
@@ -366,18 +434,23 @@
           .tile .sub { font-size: 0.7rem; color: var(--secondary-text-color); }
         </style>
         <ha-card>
-          <div class="plan">
-            <div class="art"></div>
-            ${cornerTiles}
-            <div class="tile center" data-corner="center" style="top:50%;left:50%;">
-              <ha-icon></ha-icon>
-              <div class="value"></div>
-              <div class="sub"></div>
+          <div class="wrap">
+            <div class="title"></div>
+            <div class="content">
+              <div class="plan">
+                <div class="art"></div>
+                ${cornerTiles}
+                <div class="tile center" data-corner="center" style="top:50%;left:50%;">
+                  <ha-icon></ha-icon>
+                  <div class="value"></div>
+                  <div class="sub"></div>
+                </div>
+              </div>
             </div>
           </div>
         </ha-card>
       `;
-      this._card = this.shadowRoot.querySelector("ha-card");
+      this._title = this.shadowRoot.querySelector(".title");
       this._art = this.shadowRoot.querySelector(".art");
       this._cornerEls = Object.fromEntries(
         CORNERS.map((c) => [c, this.shadowRoot.querySelector(`.tile[data-corner="${c}"]`)])
@@ -389,7 +462,9 @@
     _update() {
       if (!this._hass || !this._config || !this._built) return;
 
-      this._card.header = this._config.title || "";
+      const title = this._config.title || "";
+      this._title.textContent = title;
+      this._title.style.display = title ? "" : "none";
 
       const artKey = this._config.image || "__default__";
       if (this._artKey !== artKey) {
