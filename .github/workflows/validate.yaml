@@ -25,6 +25,3 @@ jobs:
         with:
           node-version: "22"
       - run: node --check rv-level-cards.js
-      - run: node --check shared.js
-      - run: node --check bubble-card.js
-      - run: node --check topdown-card.js

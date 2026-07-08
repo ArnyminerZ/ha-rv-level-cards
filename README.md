@@ -31,8 +31,7 @@ Not yet in the default HACS store, so add it as a custom repository:
 
 ### Manual
 
-1. Copy `rv-level-cards.js`, `bubble-card.js`, `topdown-card.js` and
-   `shared.js` into `config/www/rv-level-cards/`.
+1. Copy `rv-level-cards.js` into `config/www/rv-level-cards/`.
 2. Settings -> Dashboards -> top-right "..." menu -> **Resources** -> **Add
    resource**:
    - URL: `/local/rv-level-cards/rv-level-cards.js`
