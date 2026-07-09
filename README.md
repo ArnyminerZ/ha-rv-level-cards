@@ -80,7 +80,9 @@ exactly where the vehicle stops counting as level.
 type: custom:rv-level-topdown-card
 device_id: <your RV Level device id>
 title: RV Level # optional
-image: /api/image/serve/<id>/original # optional, set via the UI editor
+image: # optional, set via the UI editor
+  media_content_id: media-source://media_source/local/my-van.jpg
+  media_content_type: image/jpeg
 ```
 
 A top-down illustration of your vehicle with a tile at each corner showing
@@ -89,9 +91,13 @@ single/double/triple, matching how many steps up your chock preset needs),
 plus a center tile showing whether the vehicle is level, not level, or not
 levelable at all with your configured chocks.
 
-By default a generic top-down van outline is used. To use a photo/drawing
-of your own vehicle instead, open the card's UI editor and use the **Top-down
-vehicle image** upload field — no need to place files in `www/` by hand.
+By default a generic top-down van outline is used. To use a photo/drawing of
+your own vehicle instead, open the card's UI editor and use the **Top-down
+vehicle image** field — the same picker Home Assistant's built-in Picture
+card uses, so you can either upload a file straight from your device or
+browse any media source you've already configured (e.g. `/media` or
+`/local`). A plain image URL (as used in older versions of this card) still
+works too.
 
 ## Languages
 

@@ -4,8 +4,9 @@
  * Single self-contained file on purpose: no build step, no npm
  * dependencies, and no ES-module imports across files, so HACS only ever
  * has to fetch (and the browser only ever has to load) this one resource.
- * `ha-card`, `ha-icon`, `ha-form` and `ha-picture-upload` are already
- * registered as custom elements by the Home Assistant frontend itself.
+ * `ha-card`, `ha-icon` and `ha-form` (including its `device`/`text`/`media`
+ * selector renderers) are already registered as custom elements by the
+ * Home Assistant frontend itself.
  */
 (() => {
   const DOMAIN = "rv_level";
@@ -53,18 +54,6 @@
     return entry?.device_id;
   }
 
-  /** Home Assistant's own dom-event helper, reimplemented to avoid a frontend import. */
-  function fireEvent(node, type, detail = {}, options = {}) {
-    const event = new CustomEvent(type, {
-      bubbles: options.bubbles ?? true,
-      cancelable: Boolean(options.cancelable),
-      composed: options.composed ?? true,
-      detail,
-    });
-    node.dispatchEvent(event);
-    return event;
-  }
-
   /**
    * A generic entity-based suggestion: any entity belonging to an RV Level
    * device suggests the whole card, wired to that device.
@@ -73,6 +62,28 @@
     const entry = hass?.entities?.[entityId];
     if (!entry || entry.platform !== DOMAIN || !entry.device_id) return null;
     return { config: { type: cardType, device_id: entry.device_id } };
+  }
+
+  /** True for `media-source://...` identifiers, which need resolving before they're a usable <img src>. */
+  function isMediaSourceContentId(id) {
+    return typeof id === "string" && id.startsWith("media-source://");
+  }
+
+  /**
+   * Resolves the `image` selector's config value into a usable <img src>.
+   * `image` can be: unset, a plain URL string (manual YAML, or values from
+   * before this card supported the media picker), or a `{ media_content_id,
+   * ... }` object (what the `media` selector — Home Assistant's own
+   * upload-or-browse-a-media-source picker — writes to the config). Only
+   * `media-source://` ids need a round trip to resolve to a real URL; plain
+   * URLs (e.g. `/local/...`, `/api/image/serve/...`) are already usable.
+   */
+  async function resolveImageSrc(hass, image) {
+    const contentId = (typeof image === "object" && image !== null ? image.media_content_id : image) || null;
+    if (!contentId) return null;
+    if (!isMediaSourceContentId(contentId)) return contentId;
+    const result = await hass.callWS({ type: "media_source/resolve_media", media_content_id: contentId });
+    return result.url;
   }
 
   // --------------------------------------------------------------------
@@ -178,11 +189,34 @@
     selector: { text: {} },
   };
 
-  /** Shared `computeLabel` logic for both cards' `device_id`/`title` form fields. */
+  // Same selector shape Home Assistant's own Picture card/element editors use
+  // for their "image" field: a picker that offers uploading a file straight
+  // to the server *or* browsing any configured media source, not just a raw
+  // URL/path text box.
+  const IMAGE_SELECTOR_SCHEMA = {
+    name: "image",
+    selector: {
+      media: {
+        accept: ["image/*"],
+        clearable: true,
+        image_upload: true,
+        hide_content_type: true,
+      },
+    },
+  };
+
+  /** Shared `computeLabel` logic for both cards' form fields. */
   function formFieldLabel(hass, schemaName) {
     if (schemaName === "device_id") return t(hass, "device");
     if (schemaName === "title") return t(hass, "title");
+    if (schemaName === "image") return t(hass, "image_label");
     return schemaName;
+  }
+
+  /** Shared `computeHelper` logic for both cards' form fields. */
+  function formFieldHelper(hass, schemaName) {
+    if (schemaName === "image") return t(hass, "image_secondary");
+    return undefined;
   }
 
   /** A generic, top-down van/RV outline used when no custom image is configured. */
@@ -433,8 +467,12 @@
       return { rows: 6, columns: 6, min_rows: 5, min_columns: 4 };
     }
 
-    static getConfigElement() {
-      return document.createElement("rv-level-topdown-card-editor");
+    static getConfigForm() {
+      return {
+        schema: [DEVICE_SELECTOR_SCHEMA, TITLE_SELECTOR_SCHEMA, IMAGE_SELECTOR_SCHEMA],
+        computeLabel: (schema) => formFieldLabel(undefined, schema.name),
+        computeHelper: (schema) => formFieldHelper(undefined, schema.name),
+      };
     }
 
     static getStubConfig(hass) {
@@ -556,11 +594,21 @@
       this._title.textContent = title;
       this._title.style.display = title ? "" : "none";
 
-      const artKey = this._config.image || "__default__";
+      const image = this._config.image;
+      const artKey =
+        (typeof image === "object" && image !== null ? image.media_content_id : image) || "__default__";
       if (this._artKey !== artKey) {
-        this._art.innerHTML =
-          artKey === "__default__" ? DEFAULT_VAN_SVG : `<img src="${this._config.image}" alt="" />`;
         this._artKey = artKey;
+        if (artKey === "__default__") {
+          this._art.innerHTML = DEFAULT_VAN_SVG;
+        } else {
+          // Resolving a media-source id is async; re-check `_artKey` when it
+          // settles in case the config (or device) changed in the meantime.
+          resolveImageSrc(this._hass, image).then((src) => {
+            if (this._artKey !== artKey) return;
+            this._art.innerHTML = src ? `<img src="${src}" alt="" />` : DEFAULT_VAN_SVG;
+          });
+        }
       }
 
       const entities = resolveDeviceEntities(this._hass, this._config.device_id);
@@ -642,59 +690,6 @@
   }
 
   customElements.define("rv-level-topdown-card", RvLevelTopdownCard);
-
-  class RvLevelTopdownCardEditor extends HTMLElement {
-    setConfig(config) {
-      this._config = config;
-      this._render();
-    }
-
-    set hass(hass) {
-      this._hass = hass;
-      this._render();
-    }
-
-    _render() {
-      // Build the child elements only once both `hass` and `config` are
-      // known. `ha-form`/`ha-picture-upload` read `this.hass` during their
-      // very first render, so connecting them to the DOM before `hass` is
-      // set makes them throw and get stuck blank instead of showing the
-      // device picker / upload widget.
-      if (!this._hass || !this._config) return;
-
-      if (!this.shadowRoot) {
-        this.attachShadow({ mode: "open" });
-        this.shadowRoot.innerHTML = `<style>ha-picture-upload { display: block; margin-top: 16px; }</style>`;
-
-        this._form = document.createElement("ha-form");
-        this._form.schema = [DEVICE_SELECTOR_SCHEMA, TITLE_SELECTOR_SCHEMA];
-        this._form.computeLabel = (schema) => formFieldLabel(this._hass, schema.name);
-        this._form.addEventListener("value-changed", (ev) => {
-          ev.stopPropagation();
-          this._config = { ...this._config, ...ev.detail.value };
-          fireEvent(this, "config-changed", { config: this._config });
-        });
-
-        this._upload = document.createElement("ha-picture-upload");
-        this._upload.addEventListener("change", (ev) => {
-          const value = ev.target.value || undefined;
-          this._config = { ...this._config, image: value };
-          fireEvent(this, "config-changed", { config: this._config });
-        });
-
-        this.shadowRoot.append(this._form, this._upload);
-      }
-
-      this._form.hass = this._hass;
-      this._form.data = this._config;
-      this._upload.hass = this._hass;
-      this._upload.value = this._config.image ?? null;
-      this._upload.label = t(this._hass, "image_label");
-      this._upload.secondary = t(this._hass, "image_secondary");
-    }
-  }
-
-  customElements.define("rv-level-topdown-card-editor", RvLevelTopdownCardEditor);
 
   // --------------------------------------------------------------------
   // Registration
