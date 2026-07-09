@@ -74,6 +74,11 @@ vehicle is level, red otherwise. The dashed "level zone" circle is drawn at
 the same pixels-per-degree scale as the bubble, so the zone boundary is
 exactly where the vehicle stops counting as level.
 
+<p>
+  <img src="screenshots/bubble-level.png" alt="Bubble level card, vehicle level" width="45%">
+  <img src="screenshots/bubble-unleveled.png" alt="Bubble level card, vehicle not level" width="45%">
+</p>
+
 ### Top-down chocks card
 
 ```yaml
@@ -98,6 +103,11 @@ card uses, so you can either upload a file straight from your device or
 browse any media source you've already configured (e.g. `/media` or
 `/local`). A plain image URL (as used in older versions of this card) still
 works too.
+
+<p>
+  <img src="screenshots/top-down-view-level.png" alt="Top-down chocks card, vehicle level" width="45%">
+  <img src="screenshots/top-down-view-unleveled.png" alt="Top-down chocks card, vehicle not level" width="45%">
+</p>
 
 ## Languages
 
