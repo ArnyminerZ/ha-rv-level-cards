@@ -695,7 +695,8 @@
       icon.icon = iconName;
       value.textContent = text;
       el.className = `tile center ${cls}`;
-      sub.textContent = wheelsState ? t(this._hass, "wheels_need_chock", Number(wheelsState.state)) : "";
+      const wheelsToLift = wheelsState ? Number(wheelsState.state) : 0;
+      sub.textContent = wheelsToLift > 0 ? t(this._hass, "wheels_need_chock", wheelsToLift) : "";
     }
   }
 
