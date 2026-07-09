@@ -75,6 +75,98 @@
     return { config: { type: cardType, device_id: entry.device_id } };
   }
 
+  // --------------------------------------------------------------------
+  // Localization (English / Catalan / Spanish)
+  // --------------------------------------------------------------------
+
+  const STRINGS = {
+    en: {
+      device: "RV Level device",
+      title: "Title",
+      select_device: "Please select an RV Level device.",
+      not_found: "RV Level device not found or not set up yet.",
+      level: "Level",
+      not_level: "Not level",
+      not_levelable: "Not levelable",
+      unavailable: "Unavailable",
+      wheels_need_chock: (n) => `${n} wheel${n === 1 ? "" : "s"} need a chock`,
+      needs_lift: (n) => `Needs ${n.toFixed(1)} cm lift`,
+      image_label: "Top-down vehicle image",
+      image_secondary: "Optional — leave empty to use the bundled generic van illustration.",
+      bubble_card_name: "RV Level - Bubble level",
+      bubble_card_desc: "A circular bubble-level indicator that moves with the RV Level device's pitch/roll and turns green when the vehicle is level.",
+      topdown_card_name: "RV Level - Top-down chocks",
+      topdown_card_desc: "A top-down view of your vehicle showing how tall a chock to place under each wheel, and whether the vehicle is level/levelable.",
+      default_bubble_title: "Level",
+      default_topdown_title: "RV Level",
+    },
+    ca: {
+      device: "Dispositiu RV Level",
+      title: "Títol",
+      select_device: "Selecciona un dispositiu RV Level.",
+      not_found: "No s'ha trobat el dispositiu RV Level o encara no està configurat.",
+      level: "Anivellat",
+      not_level: "No anivellat",
+      not_levelable: "No es pot anivellar",
+      unavailable: "No disponible",
+      wheels_need_chock: (n) => (n === 1 ? "1 roda necessita falca" : `${n} rodes necessiten falca`),
+      needs_lift: (n) => `Cal aixecar ${n.toFixed(1)} cm`,
+      image_label: "Imatge del vehicle en planta",
+      image_secondary: "Opcional: deixa-ho buit per utilitzar la il·lustració genèrica de furgoneta inclosa.",
+      bubble_card_name: "RV Level - Nivell de bombolla",
+      bubble_card_desc: "Un indicador circular de nivell de bombolla que es mou amb el cabeceig/balanceig del dispositiu RV Level i es torna verd quan el vehicle està anivellat.",
+      topdown_card_name: "RV Level - Falques en planta",
+      topdown_card_desc: "Una vista en planta del vehicle que mostra l'alçada de falca a col·locar a cada roda, i si el vehicle està anivellat o es pot anivellar.",
+      default_bubble_title: "Nivell",
+      default_topdown_title: "RV Level",
+    },
+    es: {
+      device: "Dispositivo RV Level",
+      title: "Título",
+      select_device: "Selecciona un dispositivo RV Level.",
+      not_found: "No se ha encontrado el dispositivo RV Level o aún no está configurado.",
+      level: "Nivelado",
+      not_level: "No nivelado",
+      not_levelable: "No se puede nivelar",
+      unavailable: "No disponible",
+      wheels_need_chock: (n) => (n === 1 ? "1 rueda necesita calzo" : `${n} ruedas necesitan calzo`),
+      needs_lift: (n) => `Necesita levantar ${n.toFixed(1)} cm`,
+      image_label: "Imagen del vehículo en planta",
+      image_secondary: "Opcional: déjalo vacío para usar la ilustración genérica de furgoneta incluida.",
+      bubble_card_name: "RV Level - Nivel de burbuja",
+      bubble_card_desc: "Un indicador circular de nivel de burbuja que se mueve con el cabeceo/balanceo del dispositivo RV Level y se pone verde cuando el vehículo está nivelado.",
+      topdown_card_name: "RV Level - Calzos en planta",
+      topdown_card_desc: "Una vista en planta del vehículo que muestra la altura de calzo a colocar en cada rueda, y si el vehículo está nivelado o se puede nivelar.",
+      default_bubble_title: "Nivel",
+      default_topdown_title: "RV Level",
+    },
+  };
+
+  /**
+   * Resolves the active language from `hass` (when available) or, failing
+   * that, from the document itself — the HA frontend sets `<html lang>` to
+   * the user's chosen language on boot, so this also covers call sites
+   * (static `getConfigForm`, the `window.customCards` registration) that run
+   * before/without a `hass` object at hand. Falls back to English.
+   */
+  function resolveLang(hass) {
+    const raw =
+      hass?.locale?.language ||
+      hass?.language ||
+      (typeof document !== "undefined" && document.documentElement.lang) ||
+      (typeof navigator !== "undefined" && navigator.language) ||
+      "en";
+    const short = String(raw).toLowerCase().split("-")[0];
+    return STRINGS[short] ? short : "en";
+  }
+
+  /** Translates `key`, optionally formatting it via extra args when it's a function string. */
+  function t(hass, key, ...args) {
+    const dict = STRINGS[resolveLang(hass)] || STRINGS.en;
+    const value = dict[key] ?? STRINGS.en[key];
+    return typeof value === "function" ? value(...args) : value;
+  }
+
   const DEVICE_SELECTOR_SCHEMA = {
     name: "device_id",
     required: true,
@@ -85,6 +177,13 @@
     name: "title",
     selector: { text: {} },
   };
+
+  /** Shared `computeLabel` logic for both cards' `device_id`/`title` form fields. */
+  function formFieldLabel(hass, schemaName) {
+    if (schemaName === "device_id") return t(hass, "device");
+    if (schemaName === "title") return t(hass, "title");
+    return schemaName;
+  }
 
   /** A generic, top-down van/RV outline used when no custom image is configured. */
   const DEFAULT_VAN_SVG = `
@@ -109,17 +208,10 @@
   // Bubble level card
   // --------------------------------------------------------------------
 
-  const BUBBLE_DEFAULT_TITLE = "Level";
-
-  const BUBBLE_FORM_LABELS = {
-    device_id: "RV Level device",
-    title: "Title",
-  };
-
   class RvLevelBubbleCard extends HTMLElement {
     setConfig(config) {
       if (!config?.device_id) {
-        throw new Error("Please select an RV Level device.");
+        throw new Error(t(this._hass, "select_device"));
       }
       this._config = config;
       this._built = false;
@@ -142,12 +234,12 @@
     static getConfigForm() {
       return {
         schema: [DEVICE_SELECTOR_SCHEMA, TITLE_SELECTOR_SCHEMA],
-        computeLabel: (schema) => BUBBLE_FORM_LABELS[schema.name] ?? schema.name,
+        computeLabel: (schema) => formFieldLabel(undefined, schema.name),
       };
     }
 
     static getStubConfig(hass) {
-      return { device_id: firstRvLevelDeviceId(hass) ?? "", title: BUBBLE_DEFAULT_TITLE };
+      return { device_id: firstRvLevelDeviceId(hass) ?? "", title: t(hass, "default_bubble_title") };
     }
 
     _build() {
@@ -257,7 +349,7 @@
       if (!bubbleState) {
         this._bubble.style.display = "none";
         this._zone.style.display = "none";
-        this._status.textContent = "RV Level device not found or not set up yet.";
+        this._status.textContent = t(this._hass, "not_found");
         return;
       }
 
@@ -292,7 +384,7 @@
       this._zone.style.width = `${zoneWPct}%`;
       this._zone.style.height = `${zoneHPct}%`;
 
-      this._status.textContent = isLevel ? "Level" : "Not level";
+      this._status.textContent = isLevel ? t(this._hass, "level") : t(this._hass, "not_level");
     }
   }
 
@@ -301,8 +393,6 @@
   // --------------------------------------------------------------------
   // Top-down chocks card
   // --------------------------------------------------------------------
-
-  const TOPDOWN_DEFAULT_TITLE = "RV Level";
 
   const CORNERS = ["front_left", "front_right", "rear_left", "rear_right"];
   const CORNER_POSITION = {
@@ -322,7 +412,7 @@
   class RvLevelTopdownCard extends HTMLElement {
     setConfig(config) {
       if (!config?.device_id) {
-        throw new Error("Please select an RV Level device.");
+        throw new Error(t(this._hass, "select_device"));
       }
       this._config = config;
       this._built = false;
@@ -348,7 +438,7 @@
     }
 
     static getStubConfig(hass) {
-      return { device_id: firstRvLevelDeviceId(hass) ?? "", title: TOPDOWN_DEFAULT_TITLE };
+      return { device_id: firstRvLevelDeviceId(hass) ?? "", title: t(hass, "default_topdown_title") };
     }
 
     _build() {
@@ -503,7 +593,7 @@
 
       const liftId = entities[`${corner}_lift`];
       const liftState = liftId && this._hass.states[liftId];
-      el.title = liftState ? `Needs ${Number(liftState.state).toFixed(1)} cm lift` : "";
+      el.title = liftState ? t(this._hass, "needs_lift", Number(liftState.state)) : "";
     }
 
     _renderCenter(entities) {
@@ -518,7 +608,7 @@
 
       if (!levelState) {
         icon.icon = "mdi:help-circle-outline";
-        value.textContent = "Unavailable";
+        value.textContent = t(this._hass, "unavailable");
         sub.textContent = "";
         el.className = "tile center";
         return;
@@ -531,15 +621,15 @@
       let iconName;
       let cls;
       if (isLevel) {
-        text = "Level";
+        text = t(this._hass, "level");
         iconName = "mdi:thumb-up";
         cls = "good";
       } else if (!isLevelable) {
-        text = "Not levelable";
+        text = t(this._hass, "not_levelable");
         iconName = "mdi:close-octagon";
         cls = "bad";
       } else {
-        text = "Not level";
+        text = t(this._hass, "not_level");
         iconName = "mdi:thumb-down";
         cls = "warn";
       }
@@ -547,18 +637,11 @@
       icon.icon = iconName;
       value.textContent = text;
       el.className = `tile center ${cls}`;
-      sub.textContent = wheelsState
-        ? `${wheelsState.state} wheel${wheelsState.state === "1" ? "" : "s"} need a chock`
-        : "";
+      sub.textContent = wheelsState ? t(this._hass, "wheels_need_chock", Number(wheelsState.state)) : "";
     }
   }
 
   customElements.define("rv-level-topdown-card", RvLevelTopdownCard);
-
-  const TOPDOWN_EDITOR_LABELS = {
-    device_id: "RV Level device",
-    title: "Title",
-  };
 
   class RvLevelTopdownCardEditor extends HTMLElement {
     setConfig(config) {
@@ -585,7 +668,7 @@
 
         this._form = document.createElement("ha-form");
         this._form.schema = [DEVICE_SELECTOR_SCHEMA, TITLE_SELECTOR_SCHEMA];
-        this._form.computeLabel = (schema) => TOPDOWN_EDITOR_LABELS[schema.name] ?? schema.name;
+        this._form.computeLabel = (schema) => formFieldLabel(this._hass, schema.name);
         this._form.addEventListener("value-changed", (ev) => {
           ev.stopPropagation();
           this._config = { ...this._config, ...ev.detail.value };
@@ -593,8 +676,6 @@
         });
 
         this._upload = document.createElement("ha-picture-upload");
-        this._upload.label = "Top-down vehicle image";
-        this._upload.secondary = "Optional — leave empty to use the bundled generic van illustration.";
         this._upload.addEventListener("change", (ev) => {
           const value = ev.target.value || undefined;
           this._config = { ...this._config, image: value };
@@ -608,6 +689,8 @@
       this._form.data = this._config;
       this._upload.hass = this._hass;
       this._upload.value = this._config.image ?? null;
+      this._upload.label = t(this._hass, "image_label");
+      this._upload.secondary = t(this._hass, "image_secondary");
     }
   }
 
@@ -621,16 +704,16 @@
   window.customCards.push(
     {
       type: "rv-level-bubble-card",
-      name: "RV Level - Bubble level",
-      description: "A circular bubble-level indicator that moves with the RV Level device's pitch/roll and turns green when the vehicle is level.",
+      name: t(undefined, "bubble_card_name"),
+      description: t(undefined, "bubble_card_desc"),
       preview: true,
       documentationURL: DOCS_URL,
       getEntitySuggestion: (hass, entityId) => suggestForDevice(hass, entityId, "custom:rv-level-bubble-card"),
     },
     {
       type: "rv-level-topdown-card",
-      name: "RV Level - Top-down chocks",
-      description: "A top-down view of your vehicle showing how tall a chock to place under each wheel, and whether the vehicle is level/levelable.",
+      name: t(undefined, "topdown_card_name"),
+      description: t(undefined, "topdown_card_desc"),
       preview: true,
       documentationURL: DOCS_URL,
       getEntitySuggestion: (hass, entityId) => suggestForDevice(hass, entityId, "custom:rv-level-topdown-card"),

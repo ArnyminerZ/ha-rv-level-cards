@@ -93,6 +93,13 @@ By default a generic top-down van outline is used. To use a photo/drawing
 of your own vehicle instead, open the card's UI editor and use the **Top-down
 vehicle image** upload field — no need to place files in `www/` by hand.
 
+## Languages
+
+Both cards are available in English, Catalan, and Spanish, following the
+user's Home Assistant profile language. Want to add another language? See
+[CONTRIBUTING.md](CONTRIBUTING.md) — it's a single translated object, no
+build step required.
+
 ## Notes / known limitations
 
 - Entity resolution matches on the fixed suffix of each entity ID (e.g.
