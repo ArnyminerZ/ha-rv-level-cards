@@ -109,7 +109,7 @@ build step required.
 ## Notes / known limitations
 
 - Entity resolution matches on the fixed suffix of each entity ID (e.g.
-  `..._front_left_chock`, `..._bubble_position`). This is stable across
+  `..._front_left_chock`, `..._pitch`). This is stable across
   device renames, but if you ever rename an *individual entity* away from
   its default name, the card won't find it and will show a placeholder
   ("—" / "Unavailable") for that corner instead.

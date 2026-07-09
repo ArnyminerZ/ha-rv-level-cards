@@ -12,6 +12,12 @@
   const DOMAIN = "rv_level";
   const DOCS_URL = "https://github.com/ArnyminerZ/ha-rv-level-cards";
 
+  // How many degrees of pitch/roll correspond to the dial's edge in the
+  // bubble card. Matches the (non-configurable) constant the integration
+  // itself used to normalize its old bubble-position sensor before that
+  // sensor was replaced by the plain pitch/roll sensors this card now reads.
+  const BUBBLE_MAX_ANGLE = 6.0;
+
   // Fixed suffixes of the entity IDs created by the RV Level integration
   // (see custom_components/rv_level/{sensor,binary_sensor}.py). The device
   // name / entity_id prefix can be renamed by the user, but `_attr_name` for
@@ -28,14 +34,15 @@
     "rear_left_chock",
     "rear_right_chock",
     "wheels_to_lift",
-    "bubble_position",
+    "pitch",
+    "roll",
     "levelable",
     "level",
   ];
 
   /**
    * Given a device_id, return a { suffix: entity_id } map of every RV Level
-   * entity that belongs to it, e.g. { bubble_position: "sensor.rv_level_bubble_position", ... }.
+   * entity that belongs to it, e.g. { pitch: "sensor.rv_level_pitch", ... }.
    */
   function resolveDeviceEntities(hass, deviceId) {
     const map = {};
@@ -378,9 +385,10 @@
       this._title.style.display = title ? "" : "none";
 
       const entities = resolveDeviceEntities(this._hass, this._config.device_id);
-      const bubbleState = entities.bubble_position && this._hass.states[entities.bubble_position];
+      const pitchState = entities.pitch && this._hass.states[entities.pitch];
+      const rollState = entities.roll && this._hass.states[entities.roll];
 
-      if (!bubbleState) {
+      if (!pitchState || !rollState) {
         this._bubble.style.display = "none";
         this._zone.style.display = "none";
         this._status.textContent = t(this._hass, "not_found");
@@ -390,12 +398,14 @@
       this._bubble.style.display = "";
       this._zone.style.display = "";
 
-      const attrs = bubbleState.attributes;
-      const x = Number(attrs.x ?? 0);
-      const y = Number(attrs.y ?? 0);
-      const pitchMargin = Number(attrs.pitch_margin ?? 1.5);
-      const rollMargin = Number(attrs.roll_margin ?? 1.5);
-      const maxAngle = Number(attrs.bubble_max_angle ?? 6.0) || 6.0;
+      const pitch = Number(pitchState.state) || 0;
+      const roll = Number(rollState.state) || 0;
+      const pitchMargin = Number(pitchState.attributes.margin ?? 1.5);
+      const rollMargin = Number(rollState.attributes.margin ?? 1.5);
+      // Clamp to +/-1 the same way the old bubble-position sensor did, so a
+      // hard tilt pins the bubble at the dial's edge instead of escaping it.
+      const x = Math.max(Math.min(roll / BUBBLE_MAX_ANGLE, 1), -1);
+      const y = Math.max(Math.min(pitch / BUBBLE_MAX_ANGLE, 1), -1);
 
       const levelState = entities.level && this._hass.states[entities.level];
       const isLevel = levelState?.state === "on";
@@ -407,8 +417,8 @@
       // exactly where the vehicle stops being level.
       const leftPct = 50 + x * 41;
       const topPct = 50 + y * 41;
-      const zoneWPct = (rollMargin / maxAngle) * 82;
-      const zoneHPct = (pitchMargin / maxAngle) * 82;
+      const zoneWPct = (rollMargin / BUBBLE_MAX_ANGLE) * 82;
+      const zoneHPct = (pitchMargin / BUBBLE_MAX_ANGLE) * 82;
 
       this._bubble.style.left = `${leftPct}%`;
       this._bubble.style.top = `${topPct}%`;
